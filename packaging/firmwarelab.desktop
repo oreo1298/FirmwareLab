@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=FirmwareLab
+GenericName=UEFI/BIOS Firmware Editor
+Comment=Explore, edit and mod UEFI/BIOS firmware images
+Exec=firmwarelab %f
+Icon=firmwarelab
+Terminal=false
+Categories=Development;Utility;Electronics;
+MimeType=application/octet-stream;
+Keywords=UEFI;BIOS;firmware;flash;EDK2;EFI;
+StartupNotify=true

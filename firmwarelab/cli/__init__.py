@@ -1,0 +1,1 @@
+"""FirmwareLab command line interface."""

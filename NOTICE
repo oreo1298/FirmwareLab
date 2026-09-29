@@ -1,0 +1,21 @@
+FirmwareLab
+===========
+
+This product includes data and file-format knowledge derived from the UEFITool
+project by Nikolaj Schlej, distributed under the BSD-2-Clause license:
+
+    Copyright (c) 2015, Nikolaj Schlej
+    https://github.com/LongSoft/UEFITool
+
+Specifically:
+  * firmwarelab/data/guids.csv         - the known-GUID name database
+  * firmwarelab/data/jedec.csv         - SPI flash JEDEC ID -> chip name table
+  * The binary layouts of UEFI volumes, FFS files, sections, NVRAM stores,
+    the Intel flash descriptor, ME/CSME, microcode, FIT and Boot Guard were
+    implemented with reference to UEFITool's format descriptions.
+
+The EFI 1.1 / Tiano decompressor follows the algorithm published in the
+TianoCore EDK II project (BSD-2-Clause, Intel Corporation).
+
+FirmwareLab is an independent, from-scratch Python implementation and is not
+affiliated with or endorsed by the above projects.

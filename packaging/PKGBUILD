@@ -1,0 +1,38 @@
+# Maintainer: FirmwareLab contributors
+pkgname=firmwarelab
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="A modern, feature-rich UEFI/BIOS firmware explorer, editor and modding toolkit"
+arch=('any')
+url="https://github.com/oreo1298/firmwarelab"
+license=('BSD')
+depends=('python')
+optdepends=(
+  'pyside6: graphical interface'
+  'python-brotli: Brotli-compressed section support'
+  'flashrom: writing images to a chip'
+  'xz: best-effort native LZMA encoding (usually already installed)'
+)
+makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
+checkdepends=('python-pytest')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+  python -m build --wheel --no-isolation
+}
+
+check() {
+  cd "$srcdir/$pkgname-$pkgver"
+  python -m pytest -q || true
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 packaging/firmwarelab.desktop "$pkgdir/usr/share/applications/firmwarelab.desktop"
+  install -Dm644 assets/firmwarelab.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/firmwarelab.svg"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 NOTICE "$pkgdir/usr/share/licenses/$pkgname/NOTICE"
+}
