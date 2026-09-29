@@ -61,13 +61,33 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: |
           python - <<'PY'
-          from PySide6.QtWidgets import QApplication
-          from firmwarelab.gui.mainwindow import MainWindow
           import glob
+          import sys
+
+          from PySide6.QtCore import QTimer
+          from PySide6.QtWidgets import QApplication
+
+          from firmwarelab.gui.mainwindow import MainWindow
+
           app = QApplication([])
-          w = MainWindow()
+          win = MainWindow()  # constructing the whole window is the core smoke test
           imgs = glob.glob("/usr/share/OVMF/OVMF_CODE*.fd") + glob.glob("/usr/share/ovmf/OVMF.fd")
+          state = {"ok": not imgs}
+
+          def poll():
+              if win.doc is not None:
+                  print("GUI OK, items:", win.doc.root.count())
+                  state["ok"] = True
+                  app.quit()
+
           if imgs:
-              w.load(imgs[0])
-          print("GUI OK, items:", w.doc.root.count() if w.doc else 0)
+              win.load(imgs[0])  # asynchronous; the event loop lets it finish
+              t = QTimer()
+              t.timeout.connect(poll)
+              t.start(200)
+              QTimer.singleShot(60000, app.quit)  # safety timeout
+              app.exec()            # aboutToQuit waits for the worker thread on exit
+          else:
+              print("GUI OK (no OVMF image found), window constructed")
+          sys.exit(0 if state["ok"] else 1)
           PY

@@ -51,6 +51,7 @@ class MainWindow(QMainWindow):
         self.doc = None
         self.model = None
         self._busy = False
+        self._threads: list = []
         self._icon_actions: list[tuple[QAction, str]] = []
         self.settings = QSettings("firmwarelab", "firmwarelab")
         self.recent = list(self.settings.value("recent", [], type=list) or [])
@@ -66,9 +67,27 @@ class MainWindow(QMainWindow):
         self.toast = Toast(self.centralWidget())
 
         theme.changed.connect(self._retheme)
+        app = QApplication.instance()
+        if app is not None:
+            app.aboutToQuit.connect(self._shutdown_threads)
         self._retheme(theme.palette)
         self._update_actions()
         self._update_recent_menu()
+
+    def _shutdown_threads(self):
+        """Wait for any background open/save worker so it is not destroyed mid-run."""
+        for t in list(self._threads):
+            try:
+                if t.isRunning():
+                    t.quit()
+                    t.wait(8000)
+            except RuntimeError:
+                pass
+        self._threads.clear()
+
+    def closeEvent(self, event):  # noqa: N802 - Qt API
+        self._shutdown_threads()
+        super().closeEvent(event)
 
     # ================================================================== construction
     def _act(self, text, slot, shortcut=None, tip=None, icon=None):
