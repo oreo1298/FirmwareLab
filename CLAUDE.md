@@ -10,7 +10,7 @@ rebuilder, CLI + PySide6 GUI). Primary target: Arch Linux; runs on Python ≥ 3.
   me, gbe, capsule, fit, amd, oprom, pe. `context.py` carries the memory map.
 - `firmwarelab/hii/` — HII strings, IFR opcodes, form model, read-only Setup browser.
 - `firmwarelab/tools/` — project (edit/undo/save+verify), builder, patch, diff,
-  search, flash, assemble, report.
+  search, flash, assemble, report, identify (board make/model + BIOS revision).
 - `firmwarelab/cli/main.py` — the `fwlab` command.
 - `firmwarelab/gui/` — PySide6 app.
 - `tests/` — pytest; synthetic images in `conftest.py`, OVMF tests auto-skip.

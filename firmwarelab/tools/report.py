@@ -75,6 +75,13 @@ def summary(root: Node, ctx=None) -> str:
     lines = ["FirmwareLab image summary", "=" * 40,
              "Total size: %s (%s)" % ("%Xh" % root.size, human_size(root.size)),
              "Total items: %d" % root.count(), ""]
+    from . import identify
+    board = identify.identify(root, ctx)
+    if not board.is_empty:
+        lines.append("Board identification:")
+        for k, v in board.describe():
+            lines.append("  %-22s %s" % (k, v))
+        lines.append("")
     for t, c in sorted(counts.items(), key=lambda kv: kv[1], reverse=True):
         lines.append("  %-16s %d" % (TYPE_ABBR.get(t, t.value), c))
     files = [n for n in root.walk() if n.type == NodeType.FILE and "pad" not in n.flags]

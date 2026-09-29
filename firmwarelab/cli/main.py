@@ -65,6 +65,40 @@ def cmd_info(args):
     return 0
 
 
+def cmd_identify(args):
+    doc = _load(args.file, args.no_decompress)
+    from ..tools import identify
+    info = identify.identify(doc.root, doc.ctx)
+    if args.json:
+        import json
+        print(json.dumps({
+            "manufacturer": info.manufacturer(), "model": info.model(),
+            "board_vendor": info.board_vendor, "board_model": info.board_model,
+            "board_version": info.board_version, "system_vendor": info.system_vendor,
+            "system_product": info.system_product, "bios_vendor": info.bios_vendor,
+            "bios_version": info.bios_version, "bios_date": info.bios_date,
+            "board_id": info.board_id,
+            "findings": [{"field": f.field, "value": f.value, "source": f.source,
+                          "confidence": identify._CONF_NAME[f.confidence],
+                          "placeholder": f.placeholder} for f in info.findings],
+        }, indent=2))
+        return 0
+    if info.is_empty:
+        print("No board or BIOS-revision identification found in this image.")
+        return 0
+    print(info.summary_line())
+    print()
+    for k, v in info.describe():
+        print("  %-22s %s" % (k, v))
+    if args.verbose:
+        print("\nEvidence:")
+        for f in info.findings:
+            print("  [%-6s] %-16s = %-32r %s%s" % (
+                identify._CONF_NAME[f.confidence], f.field, f.value, f.source,
+                " (placeholder)" if f.placeholder else ""))
+    return 0
+
+
 def cmd_tree(args):
     doc = _load(args.file, args.no_decompress)
     maxd = args.depth if args.depth is not None else 99
@@ -467,6 +501,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("file"); s.add_argument("--json", action="store_true"); s.add_argument("--summary", action="store_true")
     s.add_argument("--no-info", action="store_true"); s.add_argument("-v", "--verbose", action="store_true")
     s.set_defaults(func=cmd_info)
+
+    s = sub.add_parser("identify", help="identify the target board and BIOS revision"); add_common(s)
+    s.add_argument("file"); s.add_argument("--json", action="store_true")
+    s.add_argument("-v", "--verbose", action="store_true", help="show all evidence with sources")
+    s.set_defaults(func=cmd_identify)
 
     s = sub.add_parser("tree", help="print the structure tree"); add_common(s)
     s.add_argument("file"); s.add_argument("--depth", type=int); s.set_defaults(func=cmd_tree)

@@ -338,8 +338,9 @@ class MainWindow(QMainWindow):
         tiles.setSpacing(8)
         self.tile_size = StatTile("Size")
         self.tile_items = StatTile("Items")
-        self.tile_vendor = StatTile("Detected")
-        for t in (self.tile_size, self.tile_items, self.tile_vendor):
+        self.tile_board = StatTile("Board")
+        self.tile_bios = StatTile("BIOS")
+        for t in (self.tile_size, self.tile_items, self.tile_board, self.tile_bios):
             tiles.addWidget(t, 1)
         lay.addLayout(tiles)
         divider = QFrame()
@@ -352,6 +353,17 @@ class MainWindow(QMainWindow):
         hl = QVBoxLayout(holder)
         hl.setContentsMargins(0, 0, 0, 0)
         hl.setSpacing(8)
+        self.board_header = QLabel("BOARD IDENTIFICATION")
+        self.board_header.setObjectName("CardTitle")
+        self.board_header.setFont(scaled_font(self.board_header, 0.82, bold=True))
+        self.board_grid = KeyValueGrid()
+        self.board_divider = QFrame()
+        self.board_divider.setObjectName("Divider")
+        hl.addWidget(self.board_header)
+        hl.addWidget(self.board_grid)
+        hl.addWidget(self.board_divider)
+        for wdg in (self.board_header, self.board_grid, self.board_divider):
+            wdg.hide()
         self.info_grid = KeyValueGrid()
         hl.addWidget(self.info_grid)
         self.info_msgs = QLabel()
@@ -724,8 +736,26 @@ class MainWindow(QMainWindow):
         self.tile_size.set(human_size(root.size), "%Xh bytes" % root.size)
         self.tile_items.set(str(root.count()))
         ctx = getattr(self.doc, "ctx", None)
-        vendor = ", ".join(sorted(ctx.vendor_hints)) if ctx and ctx.vendor_hints else root.subtype
-        self.tile_vendor.set(vendor or "—")
+        board = self._board_info(root, ctx)
+        model, maker = board.model(), board.manufacturer()
+        self.tile_board.set(model or "—", ("%s %s" % (maker, model)) if maker and model else (maker or model or ""))
+        self.tile_bios.set(board.bios_version or "—",
+                           ("BIOS date: %s" % board.bios_date) if board.bios_date else "")
+        self.board_grid.clear()
+        rows = board.describe()
+        for k, v in rows:
+            self.board_grid.add_row(k, v)
+        for wdg in (self.board_header, self.board_grid, self.board_divider):
+            wdg.setVisible(bool(rows))
+
+    def _board_info(self, root, ctx):
+        """Identify the board/BIOS, cached per tree version so refreshes stay cheap."""
+        from ..tools import identify
+        if getattr(self, "_board_uid", None) == root.uid and getattr(self, "_board", None) is not None:
+            return self._board
+        self._board = identify.identify(root, ctx)
+        self._board_uid = root.uid
+        return self._board
 
     def _refresh_messages(self):
         self.messages.clear()

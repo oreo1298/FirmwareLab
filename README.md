@@ -44,6 +44,10 @@ same dark/light theme, cards, icons and hex view — so the two tools feel like 
   Zlib, CRC32 GUID-defined sections.
 - **Compression-aware.** Search, patch and edit reach *inside* compressed volumes;
   affected sections are transparently recompressed on save.
+- **Board & BIOS identification.** Works out the target motherboard make/model and
+  BIOS revision by cross-referencing the AMI/Intel `$IBIOSI$` BIOS ID, embedded
+  SMBIOS Type 0/1/2 templates and Insyde `$BVDT` data — reaching inside compressed
+  volumes — and reports each field with its source and confidence.
 - **Non-destructive & undoable.** Copy-on-write edit model with full undo/redo, and
   a verification pass that re-parses the rebuilt image and reports every changed
   file, moved module and new warning before writing.
@@ -121,9 +125,10 @@ window. It opens a three-pane workspace:
 - **Structure tree** on the left, color-coded by type, with volumes/regions in bold,
   execute-in-place modules italicised, and protected/inactive items tinted. Names are
   resolved from the GUID database and UI/version sections.
-- **Information · Hex · Text** tabs on the right: a full property sheet, a fast hex
-  view (showing the item at its real flash address), and a text/body view that
-  renders UI strings, versions and dependency expressions.
+- **Information · Hex · Text** tabs on the right: a full property sheet that leads
+  with the detected board make/model and BIOS revision, a fast hex view (showing the
+  item at its real flash address), and a text/body view that renders UI strings,
+  versions and dependency expressions.
 - **Message log** at the bottom listing every parser warning.
 
 Everything you can do on the command line is on the menus:
@@ -146,6 +151,8 @@ context actions.
 
 ```sh
 fwlab info bios.bin --summary          # high-level summary + warnings
+fwlab identify bios.bin                 # target board make/model + BIOS revision
+fwlab identify bios.bin -v              # …with every source and its confidence
 fwlab tree bios.bin --depth 3          # structural tree with offsets/addresses
 fwlab info bios.bin --json             # full machine-readable dump
 
