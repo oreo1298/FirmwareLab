@@ -36,6 +36,13 @@ python -m firmwarelab.gui.app                        # launch the GUI (needs PyS
 ```
 
 ## GUI notes
+- The GUI shares its design system with the **EZP2019Linux** suite: `gui/theme.py`
+  (identical Palette/QSS + Fusion + ThemeManager), `gui/icons.py` (24×24 stroke
+  icons tinted at render time), `gui/widgets.py` (Card, KeyValueGrid, StatTile,
+  StatusDot, Toast, SegmentedControl), and a matching hex view. Keep the two apps
+  visually consistent when editing these. The window is: identity + icon-over-text
+  toolbar (accent primary Save) + status pill/theme toggle, a Structure card, a
+  Details card (Information/Hex/Text), and an Activity log card.
 - The GUI is the primary interface. Parsing and saving run on a background QThread
   (`firmwarelab/gui/worker.py`) so the window never freezes; completion slots must be
   bound methods of a GUI-thread QObject, and `run_async` keeps a reference to the

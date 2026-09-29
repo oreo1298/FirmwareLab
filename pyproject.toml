@@ -45,7 +45,7 @@ Issues = "https://github.com/oreo1298/firmwarelab/issues"
 include = ["firmwarelab*"]
 
 [tool.setuptools.package-data]
-firmwarelab = ["data/*.csv"]
+firmwarelab = ["data/*.csv", "data/*.svg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

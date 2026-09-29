@@ -10,7 +10,10 @@ Boot Guard analysis, image diffing, pattern patching, and flash-preparation help
 
 It is written from scratch in Python (no compiled dependency beyond the standard
 library; `PySide6` only for the GUI), runs primarily on **Arch Linux** and works on
-any distro with Python ≥ 3.10.
+any distro with Python ≥ 3.10. Its interface is part of the **EZP2019Linux suite** —
+same dark/light theme, cards, icons and hex view — so the two tools feel like one product.
+
+![FirmwareLab](docs/screenshots/main-dark.png)
 
 > ⚠️ **Flashing the wrong image can brick your board.** Always keep a backup and,
 > where possible, an external SPI programmer. FirmwareLab verifies every rebuild by
