@@ -25,12 +25,22 @@ rebuilder, CLI + PySide6 GUI). Primary target: Arch Linux; runs on Python ≥ 3.
 - Never disable/skip an integrity check to make output "work".
 
 ## Running
+The system Python is usually externally-managed (PEP 668) — use a venv, not bare pip.
 ```sh
-pip install ".[dev]"
-pytest -q
+python -m venv .venv && . .venv/bin/activate
+pip install -e ".[dev]"
+pytest -q                                           # or: make test
 FWLAB_TEST_OVMF=/usr/share/OVMF/OVMF.fd pytest -q   # + integration
 QT_QPA_PLATFORM=offscreen python -c "from firmwarelab.gui.app import run; run([])"  # headless GUI check
+python -m firmwarelab.gui.app                        # launch the GUI (needs PySide6)
 ```
+
+## GUI notes
+- The GUI is the primary interface. Parsing and saving run on a background QThread
+  (`firmwarelab/gui/worker.py`) so the window never freezes; completion slots must be
+  bound methods of a GUI-thread QObject, and `run_async` keeps a reference to the
+  worker so it is not GC'd mid-run. During a threaded save the document's listeners
+  are detached so its reload does not touch Qt from the worker thread.
 
 ## Attribution
 GUID/JEDEC data and format layouts derive from UEFITool (BSD-2-Clause); see `NOTICE`.

@@ -1,35 +1,37 @@
 # Maintainer: FirmwareLab contributors
+#
+# Local PKGBUILD: builds FirmwareLab from this checkout (no download).
+# From the repository root:
+#     cd packaging && makepkg -fsi
+#
+# GUI-first: pulls in pyside6 so the graphical editor works out of the box.
 pkgname=firmwarelab
 pkgver=0.1.0
 pkgrel=1
 pkgdesc="A modern, feature-rich UEFI/BIOS firmware explorer, editor and modding toolkit"
 arch=('any')
-url="https://github.com/oreo1298/firmwarelab"
+url="https://github.com/oreo1298/FirmwareLab"
 license=('BSD')
-depends=('python')
+depends=('python' 'pyside6')
 optdepends=(
-  'pyside6: graphical interface'
   'python-brotli: Brotli-compressed section support'
   'flashrom: writing images to a chip'
   'xz: best-effort native LZMA encoding (usually already installed)'
 )
 makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
-checkdepends=('python-pytest')
-source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+options=('!strip')
+
+# _srcdir is the repository root (the parent of this packaging/ directory).
+_srcdir="$startdir/.."
 
 build() {
-  cd "$srcdir/$pkgname-$pkgver"
+  cd "$_srcdir"
+  rm -rf dist
   python -m build --wheel --no-isolation
 }
 
-check() {
-  cd "$srcdir/$pkgname-$pkgver"
-  python -m pytest -q || true
-}
-
 package() {
-  cd "$srcdir/$pkgname-$pkgver"
+  cd "$_srcdir"
   python -m installer --destdir="$pkgdir" dist/*.whl
   install -Dm644 packaging/firmwarelab.desktop "$pkgdir/usr/share/applications/firmwarelab.desktop"
   install -Dm644 assets/firmwarelab.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/firmwarelab.svg"

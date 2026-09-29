@@ -47,27 +47,97 @@ any distro with Python ≥ 3.10.
 
 ## Installing
 
-### Arch Linux
+FirmwareLab is used mainly through its **graphical editor**. Pick whichever route
+below fits your system — each ends with a `firmwarelab` command and an application-menu
+entry that launch the GUI. (`liblzma`/`xz`, usually already installed, gives the best
+LZMA encoding; a pure-Python fallback is used if it is missing.)
+
+### Just run it (no install)
+
+The fastest way to try it — needs only Python and PySide6:
+
 ```sh
-cd packaging && makepkg -si        # builds and installs the package + .desktop + icon
+git clone https://github.com/oreo1298/FirmwareLab
+cd FirmwareLab
+sudo pacman -S --needed python pyside6 python-brotli   # Arch/Manjaro
+./firmwarelab.sh                                        # launches the GUI
+./firmwarelab.sh bios.bin                               # …opening an image
 ```
 
-### Any distro (virtualenv)
+On other distros install PySide6 from your package manager (Debian/Ubuntu:
+`sudo apt install python3-pyside6.qtwidgets python3-brotli`; Fedora:
+`sudo dnf install python3-pyside6`) and run `./firmwarelab.sh`.
+
+### Arch Linux — system package
+
+Builds a real package (GUI included) from this checkout and installs it with pacman,
+along with the `.desktop` entry and icon:
+
 ```sh
-pip install ".[full]"              # fwlab + firmwarelab GUI
-# or, without touching system Python:
-./packaging/install.sh
+cd packaging
+makepkg -fsi
 ```
 
-### From PyPI-style extras
+`pyside6` is pulled in as a dependency, so the GUI works out of the box; `flashrom`
+and `python-brotli` are optional depends.
+
+### Any distro — user install (no root)
+
+Installs into a self-contained virtualenv under `~/.local` and drops launchers +
+a desktop entry on your PATH. It reuses a system PySide6 if one is present (so it
+stays small), otherwise it pip-installs PySide6 into the venv:
+
 ```sh
-pip install firmwarelab            # CLI only, zero extra deps
-pip install "firmwarelab[gui]"     # + graphical editor (PySide6)
-pip install "firmwarelab[brotli]"  # + Brotli sections
+./packaging/install.sh          # GUI + CLI  (PREFIX=~/.local by default)
+NO_GUI=1 ./packaging/install.sh # CLI only, skip PySide6
+make uninstall                  # remove it again
 ```
 
-`liblzma`/`xz` (usually already present) is used for the best LZMA encoding; the
-pure-Python fallback works without it.
+### pip / pipx (advanced)
+
+FirmwareLab's core has **no** third-party dependencies, so a CLI-only install is
+trivial. On modern distros (Arch included) the system Python is
+externally-managed, so use a virtualenv or `pipx` rather than a bare
+`pip install` — that is what "the pip command doesn't work" usually means:
+
+```sh
+pipx install "firmwarelab[gui] @ ."   # isolated app with the GUI
+# or inside a venv you control:
+python -m venv .venv && . .venv/bin/activate
+pip install ".[full]"                 # fwlab + firmwarelab GUI + brotli
+```
+
+Extras: `gui` (PySide6), `brotli` (Brotli sections), `full` (both), `dev` (+pytest).
+
+## Graphical editor (the main interface)
+
+Launch `firmwarelab` (from the app menu or the shell), `./firmwarelab.sh`, or
+`fwlab gui`, and open an image — or just drag a `.bin`/`.rom`/`.fd`/`.cap` onto the
+window. It opens a three-pane workspace:
+
+- **Structure tree** on the left, color-coded by type, with volumes/regions in bold,
+  execute-in-place modules italicised, and protected/inactive items tinted. Names are
+  resolved from the GUID database and UI/version sections.
+- **Information · Hex · Text** tabs on the right: a full property sheet, a fast hex
+  view (showing the item at its real flash address), and a text/body view that
+  renders UI strings, versions and dependency expressions.
+- **Message log** at the bottom listing every parser warning.
+
+Everything you can do on the command line is on the menus:
+
+- **File** — open, save, save-as, reload, and an *Open Recent* list; drag-and-drop.
+- **Edit** — extract, replace body/file, insert, remove, rebuild, and full
+  **undo/redo**.
+- **Tools** — search (text/GUID/hex, reaching into compressed volumes), the NVRAM
+  variable editor, the read-only BIOS Setup browser, the IFR/HII viewer, image
+  compare, patch-script application, flash-descriptor unlock and a flash-readiness
+  report.
+- **View** — dark/light theme toggle, expand/collapse.
+
+Opening and saving large images run on a background thread, so the window stays
+responsive; a save always rebuilds, re-parses and verifies before writing, and
+reports moved/rebased modules and any warnings. Right-click any tree item for its
+context actions.
 
 ## Command line — `fwlab`
 
@@ -125,15 +195,6 @@ D9DCC5DF-4007-435E-9098-8970935504B2  15  P:50006c00:43004c0049..
 1B18524A-...                          10  O:1000:9090
 ```
 
-## Graphical editor
-
-`firmwarelab` (or `fwlab gui`) opens a three-pane window: the structure tree
-(color-coded by type, XIP modules italicised, protected/inactive items tinted), an
-information + hex + text panel, and a parser-message log. Tools menu gives search,
-the NVRAM editor, the read-only BIOS Setup browser, the IFR viewer, image compare,
-patch-script application, descriptor unlock and flash-readiness. Dark and light
-themes, full undo/redo, and a save that verifies before it writes.
-
 ## Safety model
 
 Every save runs the builder and then **re-parses the result**, comparing it against
@@ -160,10 +221,16 @@ expanded (the ME is usually treated as an opaque region for modding).
 ## Development
 
 ```sh
-pip install ".[dev]"
-pytest                                   # 70+ tests; OVMF tests auto-skip if absent
-FWLAB_TEST_OVMF=/usr/share/OVMF/OVMF.fd pytest   # include integration tests
+python -m venv .venv && . .venv/bin/activate   # avoid the system-Python restriction
+pip install -e ".[dev]"
+make test                                       # or: pytest -q
+FWLAB_TEST_OVMF=/usr/share/OVMF/OVMF.fd pytest  # include OVMF integration tests
+make gui-check                                  # headless GUI smoke test
+make run                                         # launch the GUI from source
 ```
+
+70+ tests cover the codecs, parse/build round-trips, edit operations, tools and HII;
+the OVMF-based integration tests auto-skip when no OVMF image is installed.
 
 ## License & credits
 

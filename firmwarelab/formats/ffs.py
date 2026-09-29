@@ -8,8 +8,21 @@ import zlib
 from .. import codecs
 from ..codecs import tiano
 from ..core import guids as G
-from ..core.binary import (align_up, checksum8, crc32, is_uniform, p24, p32, size_str, sum16, u16, u24,
-                           u32, u64, ucs2_string)
+from ..core.binary import (
+    align_up,
+    checksum8,
+    crc32,
+    is_uniform,
+    p24,
+    p32,
+    size_str,
+    sum16,
+    u16,
+    u24,
+    u32,
+    u64,
+    ucs2_string,
+)
 from ..core.guids import guid_db, guid_to_str
 from ..core.node import Node, NodeType
 from . import pe as pemod

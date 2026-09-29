@@ -7,6 +7,7 @@ import sys
 
 def run(files=None) -> int:
     from PySide6.QtWidgets import QApplication
+
     from .mainwindow import MainWindow
 
     app = QApplication.instance() or QApplication(sys.argv)

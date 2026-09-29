@@ -4,11 +4,25 @@ from __future__ import annotations
 
 import os
 
-from PySide6.QtCore import Qt, QSettings
-from PySide6.QtGui import QAction, QKeySequence, QFont
-from PySide6.QtWidgets import (QApplication, QFileDialog, QInputDialog, QMainWindow,
-                              QMessageBox, QPlainTextEdit, QSplitter, QTabWidget, QTableWidget,
-                              QTableWidgetItem, QHeaderView, QTreeView, QMenu)
+from PySide6.QtCore import QSettings, Qt
+from PySide6.QtGui import QAction, QCursor, QFont, QGuiApplication, QKeySequence
+from PySide6.QtWidgets import (
+    QApplication,
+    QFileDialog,
+    QHeaderView,
+    QInputDialog,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QMessageBox,
+    QPlainTextEdit,
+    QSplitter,
+    QStackedWidget,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTreeView,
+)
 
 from .. import __app_name__, __version__
 from ..core.binary import human_size
@@ -16,6 +30,9 @@ from ..core.node import Node, NodeType
 from . import theme
 from .hexview import HexView
 from .treemodel import FirmwareTreeModel
+from .worker import OpenWorker, SaveWorker, run_async
+
+MAX_RECENT = 10
 
 
 class MainWindow(QMainWindow):
@@ -24,14 +41,18 @@ class MainWindow(QMainWindow):
         self.doc = None
         self.model = None
         self.dark = True
+        self._busy = False
         self.settings = QSettings("FirmwareLab", "FirmwareLab")
         self.dark = self.settings.value("dark", True, type=bool)
+        self.recent = list(self.settings.value("recent", [], type=list) or [])
         self.setWindowTitle(__app_name__)
         self.resize(1360, 860)
+        self.setAcceptDrops(True)
         self._build_ui()
         self._build_menu()
         self.apply_theme()
         self._update_actions()
+        self._update_recent_menu()
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):
@@ -41,7 +62,20 @@ class MainWindow(QMainWindow):
         self.tree.setAlternatingRowColors(False)
         self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._tree_menu)
-        splitter.addWidget(self.tree)
+
+        self.left_stack = QStackedWidget()
+        self.welcome = QLabel(
+            "<div style='text-align:center'>"
+            "<h2>FirmwareLab</h2>"
+            "<p>Open a firmware image to begin.</p>"
+            "<p style='color:#888'>File → Open&nbsp;&nbsp;·&nbsp;&nbsp;Ctrl+O"
+            "&nbsp;&nbsp;·&nbsp;&nbsp;or drag a .bin / .rom / .fd / .cap here</p>"
+            "</div>")
+        self.welcome.setAlignment(Qt.AlignCenter)
+        self.welcome.setWordWrap(True)
+        self.left_stack.addWidget(self.welcome)  # index 0
+        self.left_stack.addWidget(self.tree)     # index 1
+        splitter.addWidget(self.left_stack)
 
         right = QSplitter(Qt.Vertical)
         self.tabs = QTabWidget()
@@ -94,6 +128,7 @@ class MainWindow(QMainWindow):
         self.act_saveas = self._act("Save &As…", self.save_file_as, "Ctrl+Shift+S")
         self.act_reload = self._act("&Reload", self.reload_file, "Ctrl+R")
         m.addAction(self.act_open)
+        self.recent_menu = m.addMenu("Open &Recent")
         m.addAction(self.act_save)
         m.addAction(self.act_saveas)
         m.addAction(self.act_reload)
@@ -163,40 +198,109 @@ class MainWindow(QMainWindow):
         self.settings.setValue("dark", self.dark)
         self.apply_theme()
 
+    # ------------------------------------------------------------------ drag & drop
+    def dragEnterEvent(self, e):
+        if e.mimeData().hasUrls() and any(u.isLocalFile() for u in e.mimeData().urls()):
+            e.acceptProposedAction()
+
+    def dropEvent(self, e):
+        for u in e.mimeData().urls():
+            if u.isLocalFile():
+                self.open_file(u.toLocalFile())
+                break
+
     # ------------------------------------------------------------------ file ops
     def open_file(self, path=None):
+        if self._busy:
+            return
         if not path:
             path, _ = QFileDialog.getOpenFileName(self, "Open firmware image", "",
-                                                  "Firmware (*.bin *.rom *.fd *.cap *.fv *.efi *.wph);;All files (*)")
+                                                  "Firmware (*.bin *.rom *.fd *.cap *.fv *.efi *.wph *.scap);;All files (*)")
         if not path:
             return
         self.load(path)
 
+    def _set_busy(self, busy, message=""):
+        self._busy = busy
+        if busy:
+            QGuiApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+            self.status.showMessage(message)
+        else:
+            QGuiApplication.restoreOverrideCursor()
+        self.act_open.setEnabled(not busy)
+        self._update_actions()
+
     def load(self, path):
-        from ..tools.project import Document
-        try:
-            self.doc = Document.open(path)
-        except Exception as e:
-            QMessageBox.critical(self, "Open", "Failed to parse %s:\n%s" % (path, e))
+        if self._busy:
             return
+        if not os.path.isfile(path):
+            QMessageBox.warning(self, "Open", "File not found:\n%s" % path)
+            self._remove_recent(path)
+            return
+        self._set_busy(True, "Parsing %s…" % os.path.basename(path))
+        worker = OpenWorker(path)
+        run_async(self, worker, on_done=self._on_loaded, on_failed=self._on_load_failed)
+
+    def _on_load_failed(self, msg, path):
+        self._set_busy(False)
+        self.status.showMessage("Failed to open %s" % os.path.basename(path))
+        QMessageBox.critical(self, "Open", "Failed to parse %s:\n\n%s" % (path, msg))
+
+    def _on_loaded(self, doc, path):
+        self.doc = doc
         self.doc.listeners.append(self._on_doc_change)
         self.model = FirmwareTreeModel(self.doc.root, self.dark)
         self.tree.setModel(self.model)
         self.tree.selectionModel().currentChanged.connect(self._on_select)
         self.tree.expandToDepth(2)
-        hdr = self.tree.header()
         from PySide6.QtWidgets import QHeaderView
-        hdr.setSectionResizeMode(0, QHeaderView.Interactive)
+        self.tree.header().setSectionResizeMode(0, QHeaderView.Interactive)
         self.tree.setColumnWidth(0, 340)
         self.tree.setColumnWidth(1, 90)
         self.tree.setColumnWidth(2, 130)
         self.tree.setColumnWidth(3, 80)
         self.tree.setColumnWidth(4, 80)
+        self.left_stack.setCurrentIndex(1)
         self._refresh_messages()
         self._update_title()
-        self._update_actions()
+        self._add_recent(path)
+        self._set_busy(False)
         n = self.doc.root.count()
         self.status.showMessage("Loaded %s — %d items, %s" % (os.path.basename(path), n, human_size(self.doc.root.size)))
+
+    # ------------------------------------------------------------------ recent files
+    def _add_recent(self, path):
+        path = os.path.abspath(path)
+        if path in self.recent:
+            self.recent.remove(path)
+        self.recent.insert(0, path)
+        self.recent = self.recent[:MAX_RECENT]
+        self.settings.setValue("recent", self.recent)
+        self._update_recent_menu()
+
+    def _remove_recent(self, path):
+        path = os.path.abspath(path)
+        if path in self.recent:
+            self.recent.remove(path)
+            self.settings.setValue("recent", self.recent)
+            self._update_recent_menu()
+
+    def _update_recent_menu(self):
+        self.recent_menu.clear()
+        if not self.recent:
+            a = self.recent_menu.addAction("(none)")
+            a.setEnabled(False)
+            return
+        for p in self.recent:
+            act = self.recent_menu.addAction(p)
+            act.triggered.connect(lambda _=False, path=p: self.open_file(path))
+        self.recent_menu.addSeparator()
+        self.recent_menu.addAction(self._act("Clear list", self._clear_recent))
+
+    def _clear_recent(self):
+        self.recent = []
+        self.settings.setValue("recent", self.recent)
+        self._update_recent_menu()
 
     def _rebind_model(self):
         self.model.set_root(self.doc.root)
@@ -223,15 +327,29 @@ class MainWindow(QMainWindow):
             self._do_save(path)
 
     def _do_save(self, path):
-        try:
-            rep = self.doc.save(path, backup=True, verify=True, reload=True)
-        except Exception as e:
-            QMessageBox.critical(self, "Save", "Build failed:\n%s" % e)
+        if self._busy:
             return
+        # Detach GUI listeners: the worker's reload fires them off the UI thread.
+        self.doc.listeners = []
+        self._set_busy(True, "Building and verifying %s…" % os.path.basename(path))
+        worker = SaveWorker(self.doc, path, backup=True, verify=True)
+        run_async(self, worker, on_done=self._on_saved, on_failed=self._on_save_failed)
+
+    def _on_save_failed(self, msg, path):
+        self.doc.listeners = [self._on_doc_change]
+        self._set_busy(False)
+        self.status.showMessage("Save failed")
+        QMessageBox.critical(self, "Save", "Build failed:\n\n%s" % msg)
+
+    def _on_saved(self, rep, path):
+        self.doc.listeners = [self._on_doc_change]
+        self._set_busy(False)
         if not rep.ok:
+            self.status.showMessage("Save aborted: verification failed")
             QMessageBox.critical(self, "Save", "Verification failed, file not written:\n\n" + "\n".join(rep.errors))
             return
         self._rebind_model()
+        self._add_recent(path)
         msg = "Saved %s" % os.path.basename(path)
         if rep.warnings:
             msg += " (%d warning(s))" % len(rep.warnings)
@@ -447,8 +565,8 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(self, "Compare with image")
         if not path:
             return
-        from ..tools.project import Document
         from ..tools import diff
+        from ..tools.project import Document
         from .dialogs import DiffDialog
         try:
             other = Document.open(path)
@@ -521,13 +639,16 @@ class MainWindow(QMainWindow):
             self.setWindowTitle(__app_name__)
 
     def _update_actions(self):
-        has = self.doc is not None
+        has = self.doc is not None and not self._busy
         for a in (self.act_save, self.act_saveas, self.act_reload, self.act_extract, self.act_extract_body,
                   self.act_replace, self.act_replace_full, self.act_insert, self.act_remove, self.act_rebuild):
             a.setEnabled(has)
         if has:
             self.act_undo.setEnabled(bool(self.doc.undo_stack))
             self.act_redo.setEnabled(bool(self.doc.redo_stack))
+        else:
+            self.act_undo.setEnabled(False)
+            self.act_redo.setEnabled(False)
         self._update_title()
 
     def about(self):

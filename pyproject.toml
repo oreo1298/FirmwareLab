@@ -57,4 +57,5 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
-ignore = ["E501", "E741"]
+# E501 long lines, E741 ambiguous names, E702 compact argparse setup in cli/main.py
+ignore = ["E501", "E741", "E702"]

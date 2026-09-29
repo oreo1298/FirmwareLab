@@ -4,10 +4,23 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QHBoxLayout, QHeaderView,
-                              QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPlainTextEdit,
-                              QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout)
-
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+)
 
 
 class SearchDialog(QDialog):
@@ -94,8 +107,8 @@ class NvramDialog(QDialog):
         self._reload()
 
     def _reload(self):
-        from ..formats import nvram
         from ..core.guids import guid_db
+        from ..formats import nvram
         flt = self.filter.text().lower()
         self._vars = [v for v in nvram.iter_variables(self.doc.root)
                       if flt in (v.meta.get("var_name") or "").lower()]
@@ -289,7 +302,7 @@ class DiffDialog(QDialog):
                 it = QTableWidgetItem(str(val))
                 it.setForeground(Qt.GlobalColor.white if False else it.foreground())
                 if c == 0:
-                    from PySide6.QtGui import QColor, QBrush
+                    from PySide6.QtGui import QBrush, QColor
                     it.setForeground(QBrush(QColor(colors.get(e.status, "#aaa"))))
                 self.table.setItem(i, c, it)
         lay.addWidget(self.table, 1)
